@@ -1,0 +1,26 @@
+{
+  "baseline": {
+    "description": "基线负载测试配置 / Baseline Load Test Configuration",
+    "stages": [
+      { "duration": "30s", "target": 10 },
+      { "duration": "2m", "target": 10 },
+      { "duration": "30s", "target": 0 }
+    ],
+    "thresholds": {
+      "http_req_duration": ["p(95)<500", "p(99)<1000"],
+      "errors": ["rate<0.05"]
+    }
+  },
+  "regression": {
+    "description": "回归测试配置 / Regression Test Configuration",
+    "stages": [
+      { "duration": "30s", "target": 20 },
+      { "duration": "3m", "target": 20 },
+      { "duration": "30s", "target": 0 }
+    ],
+    "thresholds": {
+      "http_req_duration": ["p(95)<2000", "p(99)<5000"],
+      "errors": ["rate<0.10"]
+    }
+  }
+}

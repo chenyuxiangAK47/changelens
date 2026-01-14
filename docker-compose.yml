@@ -1,0 +1,104 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: changelens_postgres
+    environment:
+      POSTGRES_DB: changelens
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: changelens_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api_v1:
+    build:
+      context: ./services/api_v1
+      dockerfile: Dockerfile
+    container_name: changelens_api_v1
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: changelens
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DOWNSTREAM_URL: http://downstream:8002
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      downstream:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health').read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  api_v2:
+    build:
+      context: ./services/api_v2
+      dockerfile: Dockerfile
+    container_name: changelens_api_v2
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: changelens
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DOWNSTREAM_URL: http://downstream:8002
+      REG_CPU: ${REG_CPU:-1}
+      REG_DB: ${REG_DB:-1}
+      REG_DOWNSTREAM: ${REG_DOWNSTREAM:-1}
+    ports:
+      - "8002:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      downstream:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health').read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  downstream:
+    build:
+      context: ./services/downstream
+      dockerfile: Dockerfile
+    container_name: changelens_downstream
+    environment:
+      DOWNSTREAM_LATENCY_MS: ${DOWNSTREAM_LATENCY_MS:-50}
+      DOWNSTREAM_SPIKE_PROB: ${DOWNSTREAM_SPIKE_PROB:-0.0}
+      DOWNSTREAM_SPIKE_MS: ${DOWNSTREAM_SPIKE_MS:-200}
+      DOWNSTREAM_ERROR_PROB: ${DOWNSTREAM_ERROR_PROB:-0.0}
+    ports:
+      - "8003:8002"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health').read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  postgres_data:

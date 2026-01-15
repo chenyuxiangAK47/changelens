@@ -266,13 +266,95 @@ results/
     summary.md                  # Research report
 ```
 
+## Reproduce in 5 Minutes
+
+This section demonstrates how to reproduce our research results from scratch.
+
+### Prerequisites Check
+
+```powershell
+# 1. Check Docker
+docker --version
+docker compose version
+
+# 2. Check k6
+k6 version
+
+# 3. Check Python (recommended: 3.12)
+python --version
+```
+
+### One-Command Setup
+
+```powershell
+# Windows: Setup environment and install dependencies
+.\scripts\setup_venv.ps1
+
+# Activate virtual environment
+.\venv\Scripts\Activate.ps1
+```
+
+### Run Demo Experiment (3 runs, ~15 minutes)
+
+```powershell
+# 1. Start services
+docker compose up -d
+
+# Wait for services to be healthy (~30 seconds)
+docker compose ps
+
+# 2. Run research suite (N=3 for quick demo)
+.\scripts\run_research_suite.ps1 -NRuns 3
+
+# 3. View results
+# Results will be in: results/experiment_YYYYMMDD_HHMMSS/
+# - summary.md: Research report
+# - aggregated_results.json: Statistical analysis
+# - canary/run_*/: Individual run results with plots
+```
+
+### Expected Output
+
+After running, you should see:
+- `results/experiment_*/summary.md` - Research report with methodology and results
+- `results/experiment_*/aggregated_results.json` - Statistical aggregation (mean ± CI)
+- `results/experiment_*/canary/run_*/latency_*.png` - Latency plots
+- `results/experiment_*/canary/run_*/error_rate_*.png` - Error rate plots
+
+**Time**: ~15 minutes for N=3 runs (each run ~5 minutes)
+
+---
+
 ## Prerequisites
 
 - **Docker** >= 20.10
 - **Docker Compose** >= 2.0
 - **k6** >= 0.47.0 ([Installation Guide](https://k6.io/docs/getting-started/installation/))
-- **Python** >= 3.11
+- **Python 3.12** (recommended) or Python >= 3.11
+  - **Note**: Python 3.13 may have compatibility issues with some dependencies
+  - Use `scripts/setup_venv.ps1` to create isolated environment
 - **pip** (for Python dependencies)
+
+### Quick Environment Setup
+
+**Windows (PowerShell)**:
+```powershell
+# One-command setup (creates venv and installs dependencies)
+.\scripts\setup_venv.ps1
+
+# Activate virtual environment
+.\venv\Scripts\Activate.ps1
+```
+
+**Linux/macOS**:
+```bash
+# Create venv
+python3.12 -m venv venv
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
 
 ### Installing k6
 

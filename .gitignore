@@ -13,7 +13,10 @@ ENV/
 results/*.json
 results/*.csv
 results/*.png
+results/experiment_*/
 !results/.gitkeep
+!results/demo/          # Allow demo results
+!results/README.md      # Allow results README
 
 # Environment
 .env

@@ -1,30 +1,56 @@
 # ChangeLens Canary Deployment Test Runner (PowerShell)
 
+param(
+    [int]$Seed = -1,  # -1 means random seed
+    [string]$OutputDir = ""
+)
+
 Write-Host "Starting Canary deployment test..." -ForegroundColor Green
 
 # Configuration
 $K6_SCRIPT = "load/k6/scenario_canary.js"
-$OUTPUT_DIR = "results"
-$TIMESTAMP = Get-Date -Format "yyyyMMdd_HHmmss"
-$JSON_OUTPUT = "$OUTPUT_DIR/canary_$TIMESTAMP.json"
-$CSV_OUTPUT = "$OUTPUT_DIR/canary_$TIMESTAMP.csv"
+
+# Determine output directory
+if ($OutputDir -eq "") {
+    $TIMESTAMP = Get-Date -Format "yyyyMMdd_HHmmss"
+    $OUTPUT_DIR = "results"
+    $JSON_OUTPUT = "$OUTPUT_DIR/canary_$TIMESTAMP.json"
+    $CSV_OUTPUT = "$OUTPUT_DIR/canary_$TIMESTAMP.csv"
+} else {
+    $OUTPUT_DIR = $OutputDir
+    $TIMESTAMP = Get-Date -Format "yyyyMMdd_HHmmss"
+    $JSON_OUTPUT = "$OUTPUT_DIR/canary_$TIMESTAMP.json"
+    $CSV_OUTPUT = "$OUTPUT_DIR/canary_$TIMESTAMP.csv"
+}
 
 # Create results directory
 if (-not (Test-Path $OUTPUT_DIR)) {
     New-Item -ItemType Directory -Path $OUTPUT_DIR | Out-Null
 }
 
+# Set seed via environment variable if provided
+if ($Seed -ge 0) {
+    $env:K6_SEED = $Seed.ToString()
+} else {
+    $env:K6_SEED = $null
+}
+
+# Build k6 command
+$k6Args = @(
+    "run"
+    "--out", "json=$JSON_OUTPUT"
+    "--env", "API_V1_URL=http://localhost:8001"
+    "--env", "API_V2_URL=http://localhost:8002"
+    "--env", "P99_THRESHOLD_MS=500"
+    "--env", "ERR_THRESHOLD=0.05"
+    "--env", "WINDOW_SEC=10"
+    "--env", "CONSEC_WINDOWS=2"
+    $K6_SCRIPT
+)
+
 # Run k6 test
 Write-Host "Running k6 load test..." -ForegroundColor Yellow
-k6 run `
-    --out "json=$JSON_OUTPUT" `
-    --env "API_V1_URL=http://localhost:8001" `
-    --env "API_V2_URL=http://localhost:8002" `
-    --env "P99_THRESHOLD_MS=500" `
-    --env "ERR_THRESHOLD=0.05" `
-    --env "WINDOW_SEC=10" `
-    --env "CONSEC_WINDOWS=2" `
-    $K6_SCRIPT
+& k6 $k6Args
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "k6 test failed!" -ForegroundColor Red
@@ -33,7 +59,8 @@ if ($LASTEXITCODE -ne 0) {
 
 # Parse results
 Write-Host "Parsing k6 results..." -ForegroundColor Yellow
-python scripts/parse_k6.py $JSON_OUTPUT $CSV_OUTPUT 10
+$EVENTS_OUTPUT = "$OUTPUT_DIR/events.json"
+python scripts/parse_k6.py $JSON_OUTPUT $CSV_OUTPUT 10 $EVENTS_OUTPUT
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Parsing failed!" -ForegroundColor Red

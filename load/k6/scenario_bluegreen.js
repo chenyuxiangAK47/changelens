@@ -19,6 +19,15 @@ const ERR_THRESHOLD = parseFloat(__ENV.ERR_THRESHOLD || '0.05'); // 5%
 const WINDOW_SEC = parseInt(__ENV.WINDOW_SEC || '10');
 const CONSEC_WINDOWS = parseInt(__ENV.CONSEC_WINDOWS || '2');
 
+// Random seed from environment (for reproducibility)
+const SEED = parseInt(__ENV.K6_SEED || '42');
+// Simple seeded random number generator
+let seedValue = SEED;
+function seededRandom() {
+    seedValue = (seedValue * 9301 + 49297) % 233280;
+    return seedValue / 233280;
+}
+
 // Service URLs
 const API_V1_URL = __ENV.API_V1_URL || 'http://api_v1:8001';
 const API_V2_URL = __ENV.API_V2_URL || 'http://api_v2:8001';
@@ -31,6 +40,9 @@ const TEST_DURATION = 600; // 10 minutes total
 // State tracking
 let currentVersion = 'v1'; // Start with v1
 let rollbackTriggered = false;
+let rollbackTime = null;
+let rollbackReason = null;
+let testStartTime = null;
 let windowStartTime = Date.now();
 let windowLatencies = [];
 let windowErrors = 0;
@@ -71,7 +83,19 @@ function shouldRollback() {
                 
                 if (consecutiveBadWindows >= CONSEC_WINDOWS) {
                     rollbackTriggered = true;
+                    rollbackTime = (Date.now() - (testStartTime || Date.now())) / 1000;
+                    rollbackReason = p99 > P99_THRESHOLD_MS ? 'p99_threshold' : 'error_rate_threshold';
                     console.log(`[ROLLBACK TRIGGERED] Switching back to v1`);
+                    console.log(`[EVENT] ROLLBACK: ${JSON.stringify({
+                        rollback_triggered: true,
+                        rollback_time: rollbackTime,
+                        trigger_reason: rollbackReason,
+                        consecutive_bad_windows: consecutiveBadWindows,
+                        deployment_start: BLUEGREEN_SWITCH_TIME,
+                        rollout_stages: [
+                            {time: BLUEGREEN_SWITCH_TIME, traffic_pct: 1.0}
+                        ]
+                    })}`);
                     return true;
                 }
             } else {
@@ -106,13 +130,16 @@ function selectVersion(testStartTime) {
 }
 
 export default function () {
-    const testStartTime = __VU === 1 ? Date.now() : 0; // Approximate start time
+    if (__VU === 1 && testStartTime === null) {
+        testStartTime = Date.now();
+    }
+    const currentTestStartTime = testStartTime || Date.now();
     
-    const version = selectVersion(testStartTime);
+    const version = selectVersion(currentTestStartTime);
     const url = version === 'v1' ? API_V1_URL : API_V2_URL;
     
-    const user_id = `user_${Math.floor(Math.random() * 1000)}`;
-    const amount = Math.random() * 100 + 10;
+    const user_id = `user_${Math.floor(seededRandom() * 1000)}`;
+    const amount = seededRandom() * 100 + 10;
     
     const payload = JSON.stringify({
         user_id: user_id,

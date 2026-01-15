@@ -4,6 +4,7 @@ A microservice benchmark for studying change-induced performance regressions.
 """
 
 import os
+import sys
 import time
 import random
 import logging
@@ -20,12 +21,33 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import httpx
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Configure logging with more detail
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.StreamHandler(sys.stderr)
+    ]
+)
 logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
 app = FastAPI(title="ChangeLens API v2", version="2.0.0")
+
+# Add global exception handler to catch all exceptions
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    import traceback
+    tb_str = traceback.format_exc()
+    error_msg = f"Global exception handler caught: {type(exc).__name__}: {exc}\nTraceback:\n{tb_str}"
+    logger.error(error_msg)
+    sys.stderr.write(error_msg + "\n")
+    sys.stderr.flush()
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc), "traceback": tb_str}
+    )
 
 # Database connection pool
 db_pool: Optional[psycopg2.pool.ThreadedConnectionPool] = None
@@ -132,11 +154,32 @@ def simulate_db_regression(cur, user_id: str):
     
     # Deliberately slow query: full table scan without index
     # This is already achieved by dropping the index, but we add extra work
-    cur.execute("""
-        SELECT COUNT(*) FROM orders 
-        WHERE user_id LIKE %s || '%'
-    """, (user_id[:3],))
-    cur.fetchone()
+    # Use at least 3 characters for LIKE pattern, or use first char if shorter
+    if len(user_id) >= 3:
+        pattern = user_id[:3] + '%'
+    elif len(user_id) > 0:
+        pattern = user_id[:1] + '%'
+    else:
+        pattern = '%'
+    
+    try:
+        logger.debug(f"Running DB regression query with pattern: {pattern}")
+        cur.execute("""
+            SELECT COUNT(*) FROM orders 
+            WHERE user_id LIKE %s
+        """, (pattern,))
+        result = cur.fetchone()
+        # COUNT(*) should always return a result tuple like (0,) or (5,)
+        # Just fetch it, don't access any indices - this is just for simulation
+        if result:
+            logger.debug(f"DB regression query result: {result}")
+        else:
+            logger.warning("DB regression query returned None")
+    except Exception as e:
+        logger.warning(f"DB regression query failed: {e}")
+        import traceback
+        logger.warning(f"Traceback: {traceback.format_exc()}")
+        # Don't fail the request if regression simulation fails
 
 
 @app.on_event("startup")
@@ -184,26 +227,43 @@ async def checkout(request: CheckoutRequest):
     Checkout endpoint - processes an order.
     Version 2 includes controlled regressions.
     """
-    start_time = time.time()
-    order_id = f"ORD-{int(time.time() * 1000)}-{random.randint(1000, 9999)}"
+    try:
+        start_time = time.time()
+        logger.info(f"=== CHECKOUT START ===")
+        logger.info(f"Request received: user_id={request.user_id}, amount={request.amount}")
+        order_id = f"ORD-{int(time.time() * 1000)}-{random.randint(1000, 9999)}"
+        logger.info(f"Generated order_id: {order_id}")
+    except Exception as e:
+        logger.error(f"Error in checkout initialization: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise
     
     try:
+        logger.info(f"Processing checkout for user {request.user_id}, amount {request.amount}")
         # CPU Regression: Simulate CPU-bound work
         simulate_cpu_regression()
+        logger.info("CPU regression simulation completed")
         
         # Write order to database
+        logger.info("Writing order to database")
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 # DB Regression: Run inefficient query
+                logger.info("Running DB regression query")
                 simulate_db_regression(cur, request.user_id)
+                logger.info("DB regression query completed")
                 
+                logger.info(f"Inserting order {order_id}")
                 cur.execute("""
                     INSERT INTO orders (order_id, user_id, amount, status)
                     VALUES (%s, %s, %s, %s)
                 """, (order_id, request.user_id, request.amount, "pending"))
                 conn.commit()
+                logger.info("Order inserted successfully")
         
         # Call downstream service
+        logger.info("Calling downstream service")
         downstream_error = False
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
@@ -219,6 +279,7 @@ async def checkout(request: CheckoutRequest):
                 
                 downstream_response.raise_for_status()
                 downstream_data = downstream_response.json()
+                logger.info(f"Downstream service responded: {downstream_data}")
         except (httpx.RequestError, HTTPException) as e:
             if REG_DOWNSTREAM and downstream_error:
                 logger.warning(f"Downstream regression: forced error for order {order_id}")
@@ -227,14 +288,20 @@ async def checkout(request: CheckoutRequest):
             downstream_data = {"status": "skipped"}
         
         # Update order status
+        logger.info("Updating order status")
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
                     UPDATE orders SET status = %s WHERE order_id = %s
                 """, ("completed", order_id))
+                rows_affected = cur.rowcount
+                if rows_affected == 0:
+                    logger.warning(f"No rows updated for order {order_id}")
                 conn.commit()
+                logger.info(f"Order status updated, rows affected: {rows_affected}")
         
         latency_ms = (time.time() - start_time) * 1000
+        logger.info(f"Checkout completed successfully, latency: {latency_ms}ms")
         
         return {
             "order_id": order_id,
@@ -246,7 +313,16 @@ async def checkout(request: CheckoutRequest):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Checkout failed: {e}")
+        import traceback
+        tb_str = traceback.format_exc()
+        # Force output to both logger and stderr
+        error_msg = f"Checkout failed: {e}\nTraceback:\n{tb_str}"
+        logger.error(error_msg)
+        sys.stderr.write(error_msg + "\n")
+        sys.stderr.flush()
+        # Also print to stdout in case stderr is buffered
+        print(error_msg, file=sys.stdout)
+        sys.stdout.flush()
         raise HTTPException(status_code=500, detail=str(e))
 
 

@@ -101,11 +101,104 @@ Rollback is triggered when **both** conditions are met for **N consecutive windo
 - **Request Count**: Total requests per window
 - **Deployment Events**: Rollout steps and rollback triggers
 
+### Research-Grade Metrics
+
+In addition to basic performance metrics, ChangeLens computes research-grade derived metrics:
+
+- **Time-to-Detection (TTD)**: Time from deployment start to rollback trigger (seconds)
+- **Recovery Time**: Time from rollback trigger to metrics return to baseline (seconds)
+- **Impact Scope**: 
+  - Traffic percentage to v2 before rollback
+  - Affected user percentage (traffic_to_v2 × error_rate)
+
 ### Measurement Methodology
 - **Time Windows**: 10-second aggregation windows
 - **Load Pattern**: 10 concurrent virtual users (VUs) with 100ms think time
 - **Test Duration**: 10 minutes total (1 min warmup + 9 min main test)
-- **Reproducibility**: Fixed random seeds (42) for deterministic behavior
+- **Reproducibility**: Fixed random seeds for deterministic behavior
+
+## Research Methodology
+
+### Experimental Design
+
+ChangeLens follows rigorous experimental methodology for research-grade results:
+
+**Multi-Run Experiments**:
+- Each scenario (Canary, Blue-Green) is executed **N=10 times** with different random seeds
+- Seeds: base_seed + run_id (default: 42-51)
+- Each run produces independent measurements for statistical analysis
+
+**Statistical Analysis**:
+- **Bootstrap Confidence Intervals**: 95% CI using percentile method (1000 bootstrap samples)
+- **Effect Size**: Cliff's Delta for non-parametric comparison between deployment strategies
+- **Aggregation**: Mean ± standard deviation with 95% CI for all metrics
+
+**Configuration Tracking**:
+- Complete experiment metadata captured per run:
+  - Timestamp, git commit hash, Docker image tags
+  - Environment variables (regression settings, thresholds)
+  - Load parameters, random seed, host system info
+- Saved in `results/run_{i}/config.json` for full reproducibility
+
+**Derived Metrics Calculation**:
+- TTD, Recovery Time, and Impact Scope computed from windowed metrics and rollback events
+- Baseline calculated from warmup period (first 60 seconds)
+- Recovery criteria: P99 < baseline + 10% AND error_rate < baseline + 1%
+
+### Running Research Experiments
+
+**Full Research Suite** (recommended):
+```powershell
+# Run complete research workflow (N runs per scenario + aggregation + report)
+.\scripts\run_research_suite.ps1 -NRuns 10
+```
+
+**Individual Scenario**:
+```powershell
+# Run N canary experiments
+python scripts/run_experiment_suite.py --scenario canary --n-runs 10
+
+# Run N bluegreen experiments  
+python scripts/run_experiment_suite.py --scenario bluegreen --n-runs 10
+```
+
+**Statistical Analysis**:
+```powershell
+# Aggregate results with bootstrap CI
+python scripts/statistical_analysis.py --runs-dir results/canary --scenario canary --output aggregated.json
+
+# Compare both scenarios
+python scripts/statistical_analysis.py --runs-dir results --scenario both --output aggregated.json
+```
+
+**Generate Summary Report**:
+```powershell
+python scripts/generate_summary.py --results aggregated_results.json --output results/summary.md --n-runs 10
+```
+
+### Results Structure
+
+```
+results/
+  experiment_YYYYMMDD_HHMMSS/
+    canary/
+      run_1/
+        config.json              # Experiment configuration
+        canary_*.json            # k6 raw output
+        canary_*.csv             # Windowed metrics
+        events.json              # Rollback events
+        derived_metrics.json     # TTD, Recovery, Impact Scope
+        latency_canary.png       # Visualization
+        error_rate_canary.png
+      run_2/
+        ...
+      suite_summary.json
+    bluegreen/
+      run_1/
+        ...
+    aggregated_results.json     # Statistical aggregation
+    summary.md                  # Research report
+```
 
 ## Prerequisites
 

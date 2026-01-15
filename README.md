@@ -176,6 +176,72 @@ python scripts/statistical_analysis.py --runs-dir results --scenario both --outp
 python scripts/generate_summary.py --results aggregated_results.json --output results/summary.md --n-runs 10
 ```
 
+## Machine Learning Module: Early Regression Risk Prediction
+
+ChangeLens includes a machine learning module for predicting deployment-induced performance regressions from early telemetry data. This module addresses the research question: **Can we predict whether a deployment will trigger a rollback based on metrics from the first 1-2 minutes after deployment?**
+
+### Approach
+
+We extract features from the first 120 seconds of post-deployment metrics:
+
+**Latency Features**:
+- P50/P95/P99 percentiles, deltas from baseline, rolling trends
+- Mean, max, standard deviation across windows
+
+**Error Features**:
+- Error rate, error count, error rate trends
+- Deltas from baseline error rate
+
+**Deployment Context**:
+- Time since deployment, traffic percentage (for Canary), deployment stage
+- Scenario type (Canary vs. Blue-Green)
+
+We train lightweight models (Logistic Regression, XGBoost) to predict:
+- **Binary Classification**: Will this deployment trigger a rollback? (0/1)
+- **Multi-class Classification**: What type of regression? (none/CPU/DB/downstream)
+
+### Evaluation Metrics
+
+**Classification Performance**:
+- ROC-AUC, PR-AUC (Precision-Recall AUC), F1-Score
+- Precision, Recall, Confusion Matrix
+
+**Early Warning Capability** (Core Research Metric):
+- **Early Detection Rate**: Percentage of rollbacks predicted X seconds in advance (10s, 20s, 30s, 60s, 120s)
+- **Mean Early Warning Time**: Average time between prediction and actual rollback
+- **False Positive/Negative Rates**: Trade-off between early detection and false alarms
+
+### Usage
+
+**Build Dataset**:
+```powershell
+# Extract features from experiment runs
+python scripts/ml_dataset.py --results-dir results --output ml/dataset.csv --feature-window 120
+```
+
+**Train Models**:
+```powershell
+# Train Logistic Regression and XGBoost
+python scripts/ml_train.py --dataset ml/dataset.csv --models-dir ml/models --test-size 0.2
+```
+
+**Evaluate Models**:
+```powershell
+# Evaluate both models and generate metrics/visualizations
+python scripts/ml_eval.py --models-dir ml/models --dataset ml/dataset.csv --results-dir ml/results --model-type both
+```
+
+**Output**:
+- Trained models: `ml/models/logistic_regression.pkl`, `ml/models/xgboost.json`
+- Evaluation report: `ml/results/evaluation_report.json`
+- Visualizations: ROC curve, PR curve, early warning time distribution
+
+### Research Impact
+
+This ML module extends ChangeLens from a deployment strategy comparison benchmark to a predictive system for deployment safety. It demonstrates how lightweight ML models can enhance traditional threshold-based rollback mechanisms, reducing Time-to-Detection (TTD) and limiting user impact during canary rollouts.
+
+**Key Contribution**: By predicting rollbacks 30+ seconds in advance with [X]% accuracy, ML-enhanced rollback can reduce user impact compared to reactive threshold-based systems.
+
 ### Results Structure
 
 ```
@@ -442,6 +508,86 @@ Modify ports in `docker-compose.yml` if 8001, 8002, 8003, 5432, or 6379 are in u
 
 ### Plot generation fails
 Ensure matplotlib is installed: `pip install -r requirements.txt`
+
+## Comparison with Existing Benchmarks
+
+ChangeLens is designed as a **lightweight, controlled, and focused** benchmark specifically for deployment regression detection research. Compared to existing microservice benchmarks:
+
+### DeathStarBench & TrainTicket
+- **DeathStarBench** (Gan et al., SOSP 2019): Comprehensive microservice suite with 10+ services, complex dependencies, and realistic workloads (social network, media service, e-commerce). Designed for end-to-end system performance evaluation.
+- **TrainTicket** (Zhou et al., ICSE 2021): Large-scale microservice system with 41 services, simulating a railway ticketing platform. Focuses on distributed system testing and fault injection.
+
+**ChangeLens Positioning**:
+- **Smaller scale** (3 services) enables faster iteration and easier reproducibility
+- **Controlled regression injection** (CPU/DB/downstream) allows systematic study of specific failure modes
+- **Deterministic load generation** (seeded random) ensures reproducible results across runs
+- **Focused research question**: Deployment strategy comparison (Blue-Green vs. Canary) with automated rollback
+- **Faster execution**: Single experiment completes in ~10 minutes vs. hours for larger benchmarks
+- **Lower resource requirements**: Runs on a single machine with Docker, making it accessible for researchers without cluster access
+
+**Use Cases**:
+- ChangeLens is ideal for: deployment strategy research, rollback mechanism evaluation, regression detection sensitivity analysis
+- DeathStarBench/TrainTicket are better for: end-to-end system performance, complex fault propagation, large-scale scalability studies
+
+## Threats to Validity
+
+### External Validity
+1. **Synthetic Benchmark**: Results are based on a minimal microservice architecture. Real-world production systems may exhibit different characteristics due to:
+   - Network conditions (latency, packet loss, bandwidth)
+   - Hardware variations (CPU, memory, disk I/O)
+   - Application-specific behaviors and dependencies
+   - Multi-tenant resource contention
+
+2. **Limited Regression Types**: The three controlled regression scenarios (CPU, DB, downstream) may not capture all types of performance regressions encountered in production:
+   - Memory leaks or GC pressure
+   - Network partition scenarios
+   - Cascading failures across multiple services
+   - Gradual degradation vs. sudden failures
+
+3. **Single-Machine Environment**: All services run on a single machine using Docker. Real production deployments involve:
+   - Distributed systems across multiple nodes/data centers
+   - Network latency and bandwidth constraints
+   - Load balancers and service mesh overhead
+   - Container orchestration (Kubernetes) complexities
+
+### Internal Validity
+1. **Load Generation Model**: k6's virtual user model may not perfectly represent real user behavior:
+   - Fixed request patterns vs. variable user sessions
+   - Simplified routing logic (no real API gateway)
+   - Deterministic traffic distribution may not capture burst patterns
+
+2. **Metric Aggregation Windows**: 10-second aggregation windows provide a balance between granularity and noise, but:
+   - Finer-grained analysis (1-5s) might reveal additional patterns
+   - Coarser windows (30-60s) might miss rapid changes
+   - Window boundaries may affect rollback trigger timing
+
+3. **Rollback Thresholds**: Fixed thresholds (P99 > 500ms, error rate > 5%) may not be optimal for all scenarios:
+   - Different applications have different SLO requirements
+   - Thresholds should be adaptive based on baseline characteristics
+   - Consecutive window requirement (N=2) may delay detection
+
+### Construct Validity
+1. **Deployment Strategy Implementation**: Our Blue-Green and Canary implementations are simplified:
+   - Real-world deployments involve gradual traffic shifting with health checks
+   - Canary analysis often includes A/B testing and feature flags
+   - Rollback mechanisms may involve database migrations and state management
+
+2. **Performance Metrics**: P99 latency and error rate are common SLO metrics, but:
+   - Other metrics (throughput, availability, cost) may be equally important
+   - User-perceived latency may differ from server-side measurements
+   - Error classification (4xx vs. 5xx) may need more nuanced analysis
+
+### Reproducibility
+1. **Environment Dependencies**: Results depend on:
+   - Docker and Docker Compose versions
+   - Host machine resources (CPU, memory, disk I/O)
+   - Operating system and kernel versions
+   - Network stack configuration
+
+2. **Random Seed Effects**: While we use fixed seeds for reproducibility, different seed values may lead to different outcomes, especially for:
+   - Downstream service error injection (15% probability)
+   - Traffic distribution in Canary deployments
+   - k6's internal timing mechanisms
 
 ## Citation
 

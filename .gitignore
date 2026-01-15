@@ -31,3 +31,8 @@ Thumbs.db
 
 # Docker
 *.log
+
+# ML Module
+ml/models/
+ml/results/
+ml/dataset.csv

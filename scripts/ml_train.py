@@ -172,9 +172,23 @@ def save_models(models_dir: Path, logistic_model, logistic_scaler, xgboost_model
     with open(models_dir / 'feature_names.json', 'w') as f:
         json.dump(feature_names, f, indent=2)
     
-    # Save metrics
+    # Save metrics (convert numpy types to native Python types)
+    def convert_to_native(obj):
+        if isinstance(obj, np.generic):
+            return obj.item()  # Convert numpy scalar to Python native type
+        elif isinstance(obj, (np.integer, np.floating)):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, dict):
+            return {k: convert_to_native(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [convert_to_native(item) for item in obj]
+        return obj
+    
+    metrics_native = convert_to_native(metrics)
     with open(models_dir / 'training_metrics.json', 'w') as f:
-        json.dump(metrics, f, indent=2)
+        json.dump(metrics_native, f, indent=2)
     
     print(f"\nModels saved to {models_dir}")
 
@@ -217,17 +231,40 @@ def main():
     print(f"Rollback samples: {df['will_rollback'].sum()}")
     print(f"Non-rollback samples: {len(df) - df['will_rollback'].sum()}")
     
+    # Check for class imbalance
+    n_rollback = df['will_rollback'].sum()
+    n_non_rollback = len(df) - n_rollback
+    
+    if n_rollback == 0:
+        print("\nERROR: No rollback samples found in dataset!")
+        print("To train the model, you need experiments that triggered rollbacks.")
+        print("\nSuggestions:")
+        print("1. Run experiments with regressions enabled (REG_CPU=1, REG_DB=1, REG_DOWNSTREAM=1)")
+        print("2. Ensure rollback thresholds are set appropriately (P99_THRESHOLD_MS=500, ERR_THRESHOLD=0.05)")
+        print("3. Run more experiments: python scripts/run_experiment_suite.py --scenario canary --n-runs 10")
+        sys.exit(1)
+    
+    if n_non_rollback == 0:
+        print("\nERROR: No non-rollback samples found in dataset!")
+        print("You need both rollback and non-rollback samples to train a classifier.")
+        sys.exit(1)
+    
+    if len(df) < 10:
+        print(f"\nWARNING: Only {len(df)} samples available. For reliable results, recommend at least 20-30 samples.")
+    
     # Prepare features
     X, y, feature_names = prepare_features(df)
     print(f"\nNumber of features: {len(feature_names)}")
     print(f"Feature names: {', '.join(feature_names[:10])}..." if len(feature_names) > 10 else f"Feature names: {', '.join(feature_names)}")
     
     # Split data
+    # Use stratify only if both classes are present
+    stratify_param = y if len(set(y)) > 1 else None
     X_train, X_test, y_train, y_test = train_test_split(
         X, y,
         test_size=args.test_size,
         random_state=args.random_state,
-        stratify=y  # Maintain class distribution
+        stratify=stratify_param  # Maintain class distribution if possible
     )
     
     print(f"\nTrain set: {X_train.shape[0]} samples")

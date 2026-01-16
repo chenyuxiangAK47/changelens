@@ -35,6 +35,10 @@ Thumbs.db
 # Docker
 *.log
 
+# Temporary files
+deployment/textfiletemp
+deployment/textfiletemp*
+
 # ML Module
 ml/models/
 ml/results/

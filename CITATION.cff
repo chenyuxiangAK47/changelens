@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "ChangeLens: A Cloud-Native Microservice Benchmark for Change-Induced Performance Regressions"
+version: "0.1.0"
+doi: 10.5281/zenodo.XXXXXXX
+authors:
+  - given-names: "Your"
+    family-names: "Name"
+    affiliation: "Your Institution"
+date-released: 2024-01-16
+repository-code: "https://github.com/chenyuxiangAK47/changelens"
+url: "https://github.com/chenyuxiangAK47/changelens"
+license: MIT
+keywords:
+  - "microservices"
+  - "deployment strategies"
+  - "performance regression"
+  - "canary deployment"
+  - "blue-green deployment"
+  - "automated rollback"
+  - "benchmark"
+  - "reproducible research"

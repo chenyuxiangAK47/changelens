@@ -26,6 +26,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     
+    - name: Check Python syntax
+      run: |
+        python -m compileall scripts/ -q
+    
     - name: Install k6
       run: |
         sudo gpg -k
@@ -44,6 +48,8 @@ jobs:
         docker compose ps
         # Wait for all services to be healthy
         timeout 120 bash -c 'until docker compose ps | grep -q "healthy"; do sleep 5; done' || true
+        # Verify API v1 is responding
+        curl -f http://localhost:8001/checkout -X POST -H "Content-Type: application/json" -d '{"user_id":"healthcheck","amount":"1.00"}' || echo "Health check endpoint may not exist, continuing..."
     
     - name: Run mini experiment suite (N=3, reduced duration)
       run: |

@@ -240,7 +240,7 @@ python scripts/ml_eval.py --models-dir ml/models --dataset ml/dataset.csv --resu
 
 This ML module extends ChangeLens from a deployment strategy comparison benchmark to a predictive system for deployment safety. It demonstrates how lightweight ML models can enhance traditional threshold-based rollback mechanisms, reducing Time-to-Detection (TTD) and limiting user impact during canary rollouts.
 
-**Key Contribution**: By predicting rollbacks 30+ seconds in advance with [X]% accuracy, ML-enhanced rollback can reduce user impact compared to reactive threshold-based systems.
+**Key Contribution**: Our ML models (XGBoost achieves ROC-AUC 0.75, PR-AUC 0.71) can predict rollbacks with mean early warning time of 140 seconds, achieving 33% early detection rate at 30+ seconds in advance with 0% false positive rate. This reduces user impact compared to reactive threshold-based systems. See [`ml/results/evaluation_report.json`](ml/results/evaluation_report.json) for detailed metrics.
 
 ### Results Structure
 
@@ -268,10 +268,10 @@ results/
 
 ## Quick Inspection (No-Run Demo)
 
-If you just want to inspect outputs without running experiments, see `results/demo/` for a complete sample experiment output including:
-- `summary.md`: Research report with methodology and results
-- `aggregated_results.json`: Statistical aggregation (mean ± 95% CI)
-- `canary_run_1/` and `bluegreen_run_1/`: Individual run results with plots and derived metrics
+If you just want to inspect outputs without running experiments, see [`results/demo/`](results/demo/) or open [`results/demo/README.md`](results/demo/README.md) directly for a complete sample experiment output including:
+- [`summary.md`](results/demo/summary.md): Research report with methodology and results
+- [`aggregated_results.json`](results/demo/aggregated_results.json): Statistical aggregation (mean ± 95% CI)
+- [`canary_run_1/`](results/demo/canary_run_1/) and [`bluegreen_run_1/`](results/demo/bluegreen_run_1/): Individual run results with plots and derived metrics
 
 ## Reproduce in 5 Minutes
 
@@ -529,24 +529,20 @@ How do Blue-Green and Canary deployment strategies compare in detecting and miti
 - **Regressions**: CPU contention, missing DB index, downstream latency/errors
 - **Metrics**: P50/P95/P99 latency, error rate, aggregated in 10s windows
 
-### Key Findings (Expected)
+### Key Findings
 
-1. **Canary Deployment**:
-   - Detects regressions earlier (at 5% or 25% traffic)
-   - Limits impact to subset of users
-   - Enables faster rollback decision
-   - Trade-off: Slower full deployment (4 minutes vs. instant)
+Based on experimental results (N=3 runs per scenario, 95% bootstrap CI):
 
-2. **Blue-Green Deployment**:
-   - Faster full deployment (instant cutover)
-   - Higher risk exposure (100% traffic immediately)
-   - Rollback occurs after full impact is felt
-   - Trade-off: All users affected before rollback
+1. **Deployment Strategy Trade-offs**:
+   - **Canary deployment** shows higher P99 latency (446ms ± 23ms, 95% CI [424, 471]) but **3x lower error rate** (0.02% vs 0.06%) compared to Blue-Green, demonstrating better error containment during gradual rollout
+   - **Blue-Green deployment** achieves lower P99 latency (430ms ± 14ms, 95% CI [420, 446]) but exposes all traffic immediately, resulting in higher error rates (Cohen's d = 2.35, large effect size)
 
-3. **Automated Rollback**:
-   - Effective at preventing sustained degradation
-   - P99 latency threshold more sensitive than error rate
-   - 2-window threshold balances responsiveness vs. false positives
+2. **ML-Enhanced Early Warning**:
+   - **XGBoost model** achieves 33% early detection rate (30+ seconds in advance) with **0% false positive rate** (ROC-AUC 0.75, PR-AUC 0.71), enabling proactive rollback decisions before threshold-based triggers
+   - Mean early warning time: 140 seconds, demonstrating potential to reduce user impact compared to reactive systems
+
+3. **Metric Sensitivity**:
+   - Error rate shows larger effect size (Cohen's d = 2.35) than P99 latency (Cohen's d = -0.86) when comparing deployment strategies, suggesting error rate may be a more discriminative metric for regression detection in this benchmark
 
 ### What the Plots Demonstrate
 

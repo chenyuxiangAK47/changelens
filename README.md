@@ -273,6 +273,8 @@ If you just want to inspect outputs without running experiments, see [`results/d
 - [`aggregated_results.json`](results/demo/aggregated_results.json): Statistical aggregation (mean ± 95% CI)
 - [`canary_run_1/`](results/demo/canary_run_1/) and [`bluegreen_run_1/`](results/demo/bluegreen_run_1/): Individual run results with plots and derived metrics
 
+**📦 Pre-packaged Release**: For a complete demo package including all results and visualizations, download the [latest GitHub Release](https://github.com/chenyuxiangAK47/changelens/releases/latest). See [`docs/RELEASE_GUIDE.md`](docs/RELEASE_GUIDE.md) for details.
+
 ## Reproduce in 5 Minutes
 
 This section demonstrates how to reproduce our research results from scratch.

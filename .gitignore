@@ -43,3 +43,6 @@ deployment/textfiletemp*
 ml/models/
 ml/results/
 ml/dataset.csv
+
+# Release assets (generated)
+release-assets/

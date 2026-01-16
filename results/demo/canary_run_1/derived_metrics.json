@@ -1,0 +1,15 @@
+{
+  "baseline": {
+    "p99_ms": 427.8225,
+    "error_rate": 0.0
+  },
+  "ttd_seconds": null,
+  "recovery_time_seconds": null,
+  "impact_scope": {
+    "traffic_to_v2_pct": 0.0,
+    "affected_users_pct": 0.0,
+    "total_requests_before_rollback": 0,
+    "error_rate_during_regression": 0.0
+  },
+  "rollback_triggered": false
+}

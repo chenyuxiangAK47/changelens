@@ -1,0 +1,29 @@
+{
+  "run_id": 1,
+  "scenario": "bluegreen",
+  "timestamp": "2026-01-16T10:43:59.948622",
+  "git_commit": "6abfb8e2164f3ea24f662b14fa55880ed956d968",
+  "docker_images": {
+    "api_v2": "latest",
+    "api_v1": "latest",
+    "downstream": "latest"
+  },
+  "environment": {
+    "REG_CPU": "1",
+    "REG_DB": "1",
+    "REG_DOWNSTREAM": "1"
+  },
+  "load_params": {
+    "vus": 10,
+    "duration": "10m",
+    "warmup_duration": 60
+  },
+  "random_seed": 42,
+  "host_info": {
+    "cpu_cores": 32,
+    "cpu_physical_cores": 24,
+    "memory_gb": 31.73,
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python_version": "3.13.7"
+  }
+}

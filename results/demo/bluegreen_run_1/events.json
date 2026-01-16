@@ -1,0 +1,13 @@
+{
+  "rollback_triggered": false,
+  "rollback_time": null,
+  "trigger_reason": null,
+  "consecutive_bad_windows": 0,
+  "deployment_start": 120.0,
+  "rollout_stages": [
+    {
+      "time": 120,
+      "traffic_pct": 1.0
+    }
+  ]
+}

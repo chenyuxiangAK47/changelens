@@ -1,0 +1,21 @@
+{
+  "rollback_triggered": true,
+  "rollback_time": 380.06943,
+  "trigger_reason": "p99_threshold",
+  "consecutive_bad_windows": 2,
+  "deployment_start": 120.0,
+  "rollout_stages": [
+    {
+      "time": 120,
+      "traffic_pct": 0.05
+    },
+    {
+      "time": 180,
+      "traffic_pct": 0.25
+    },
+    {
+      "time": 240,
+      "traffic_pct": 1.0
+    }
+  ]
+}

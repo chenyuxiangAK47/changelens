@@ -1,0 +1,82 @@
+{
+  "canary": {
+    "p99_latency": {
+      "p99_latency_mean": 446.13085393939394,
+      "p99_latency_std": 23.38148754828187,
+      "p99_latency_median": 443.71302000000003,
+      "p99_latency_ci_lower": 424.05223090909095,
+      "p99_latency_ci_upper": 470.6273109090908,
+      "p99_latency_n": 3
+    },
+    "error_rate": {
+      "error_rate_mean": 0.00021661039790118832,
+      "error_rate_std": 0.000193296927724292,
+      "error_rate_median": 0.0002782931354359926,
+      "error_rate_ci_lower": 0.0,
+      "error_rate_ci_upper": 0.0003715380582675724,
+      "error_rate_n": 3
+    },
+    "impact_traffic": {
+      "impact_traffic_mean": 0.0,
+      "impact_traffic_std": 0.0,
+      "impact_traffic_median": 0.0,
+      "impact_traffic_ci_lower": 0.0,
+      "impact_traffic_ci_upper": 0.0,
+      "impact_traffic_n": 3
+    },
+    "impact_users": {
+      "impact_users_mean": 0.0,
+      "impact_users_std": 0.0,
+      "impact_users_median": 0.0,
+      "impact_users_ci_lower": 0.0,
+      "impact_users_ci_upper": 0.0,
+      "impact_users_n": 3
+    },
+    "n_runs": 3
+  },
+  "bluegreen": {
+    "p99_latency": {
+      "p99_latency_mean": 429.5191793939394,
+      "p99_latency_std": 14.177142561192309,
+      "p99_latency_median": 422.88654,
+      "p99_latency_ci_lower": 419.87411636363635,
+      "p99_latency_ci_upper": 445.7968818181818,
+      "p99_latency_n": 3
+    },
+    "error_rate": {
+      "error_rate_mean": 0.0005854990152448463,
+      "error_rate_std": 0.0001085816435681732,
+      "error_rate_median": 0.0005912020760087058,
+      "error_rate_ci_lower": 0.00047417822818892334,
+      "error_rate_ci_upper": 0.0006911167415369098,
+      "error_rate_n": 3
+    },
+    "impact_traffic": {
+      "impact_traffic_mean": 0.0,
+      "impact_traffic_std": 0.0,
+      "impact_traffic_median": 0.0,
+      "impact_traffic_ci_lower": 0.0,
+      "impact_traffic_ci_upper": 0.0,
+      "impact_traffic_n": 3
+    },
+    "impact_users": {
+      "impact_users_mean": 0.0,
+      "impact_users_std": 0.0,
+      "impact_users_median": 0.0,
+      "impact_users_ci_lower": 0.0,
+      "impact_users_ci_upper": 0.0,
+      "impact_users_n": 3
+    },
+    "n_runs": 3
+  },
+  "effect_sizes": {
+    "p99_latency": {
+      "cohens_d": -0.8591499744897605,
+      "interpretation": "large"
+    },
+    "error_rate": {
+      "cohens_d": 2.353055945758721,
+      "interpretation": "large"
+    }
+  }
+}
